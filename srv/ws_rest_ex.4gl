@@ -88,6 +88,9 @@ PUBLIC FUNCTION info(l_db STRING ATTRIBUTE(WSQuery, WSOptional, WSName = "db"))
 			LET x                          = l_line.getIndexOf("=", 1)
 			LET l_ret.env[i := i + 1].name = l_line.subString(1, x - 1)
 			LET l_ret.env[i].value         = l_line.subString(x + 1, l_line.getLength())
+			IF l_ret.env[i].name = "PS1" THEN -- avoid escape chars breaking the XML!
+				LET l_ret.env[i].value = "..."
+			END IF
 		END IF
 	END WHILE
 	CALL c.close()
