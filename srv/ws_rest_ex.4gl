@@ -79,7 +79,7 @@ PUBLIC FUNCTION info(l_db STRING ATTRIBUTE(WSQuery, WSOptional, WSName = "db"))
 
 	CALL logging.logIt("info", SFMT("Returning information db='%1'.", l_db))
 
-  RUN SFMT("env | sort > %1.env", l_ret.pid) -- debug only
+	RUN SFMT("env | sort > %1.env", l_ret.pid) -- debug only
 	LET c = base.Channel.create()
 	CALL c.openPipe("env", "r")
 	WHILE NOT c.isEof()
@@ -88,9 +88,9 @@ PUBLIC FUNCTION info(l_db STRING ATTRIBUTE(WSQuery, WSOptional, WSName = "db"))
 			LET x                          = l_line.getIndexOf("=", 1)
 			LET l_ret.env[i := i + 1].name = l_line.subString(1, x - 1)
 			LET l_ret.env[i].value         = l_line.subString(x + 1, l_line.getLength())
-			IF l_ret.env[i].name = "PS1" THEN -- avoid escape chars breaking the XML!
+			{IF l_ret.env[i].name = "PS1" THEN -- avoid escape chars breaking the XML!
 				LET l_ret.env[i].value = "..."
-			END IF
+			END IF}
 		END IF
 	END WHILE
 	CALL c.close()
@@ -130,15 +130,29 @@ PUBLIC FUNCTION info(l_db STRING ATTRIBUTE(WSQuery, WSOptional, WSName = "db"))
 
 -- display XML debug!
 --  CALL l_xml_doc.setFeature("format-pretty-print", TRUE)
---  CALL l_xml_doc.appendDocumentNode(l_xml)
---  DISPLAY l_xml_doc.saveToString()
+	CALL l_xml_doc.appendDocumentNode(l_xml)
+{	TRY -- If I do this then I get the expected errors - if I don't then the later error count doesnt work!
+		DISPLAY l_xml_doc.saveToString()
+	CATCH
+		DISPLAY SFMT("Failed: %1 %2 Errors: %3", STATUS, SQLCA.sqlerrm, l_xml_doc.getErrorsCount())
+		FOR i = 1 TO l_xml_doc.getErrorsCount()
+			DISPLAY SFMT("Error #%1 %2", i, l_xml_doc.getErrorDescription(i))
+		END FOR
+	END TRY}
 
 -- put the xml into the record
-  IF l_xml IS NOT NULL THEN
-  	LET l_ret.xml = l_xml.toString()
-  ELSE
-    DISPLAY "XML is NULL!"
-  END IF
+	IF l_xml IS NOT NULL THEN
+		TRY
+			LET l_ret.xml = l_xml.toString()
+		CATCH
+			DISPLAY SFMT("Failed: %1 %2 Errors: %3", STATUS, SQLCA.sqlerrm, l_xml_doc.getErrorsCount())
+			FOR i = 1 TO l_xml_doc.getErrorsCount()
+				DISPLAY SFMT("Error #%1 %2", i, l_xml_doc.getErrorDescription(i))
+			END FOR
+		END TRY
+	ELSE
+		DISPLAY "XML is NULL!"
+	END IF
 
 -- return the record as a JSON STRING
 	RETURN util.JSON.stringify(l_ret)
